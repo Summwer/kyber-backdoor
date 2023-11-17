@@ -1,0 +1,5 @@
+
+
+gcc -Wall -Wextra -Wpedantic -Wmissing-prototypes -Wredundant-decls -Wshadow -Wpointer-arith -O3 -fomit-frame-pointer -DKYBER_K=3 kex.c kem.c indcpabackdoor.c polyvec.c poly.c ntt.c cbd.c reduce.c verify.c fips202.c symmetric-shake.c test_kyber_backdoor.c -o test_kyber_backdoor768 -lmceliece348864 -lkeccak -lcrypto -ldl -lsodium
+
+gcc -Wall -Wextra -Wpedantic -Wmissing-prototypes -Wredundant-decls -Wshadow -Wpointer-arith -O3 -fomit-frame-pointer -DKYBER_K=4 kex.c kem.c indcpabackdoor.c polyvec.c poly.c ntt.c cbd.c reduce.c verify.c fips202.c symmetric-shake.c test_kyber_backdoor.c -o test_kyber_backdoor1024  -lmceliece348864 -lkeccak -lcrypto -ldl -lsodium
