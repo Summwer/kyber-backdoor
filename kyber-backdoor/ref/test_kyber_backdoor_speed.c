@@ -20,13 +20,12 @@
 #include <inttypes.h>
 #include <assert.h>
 #include "symmetric.h"
-#include "poly.h"
 
 
 void fprintBstr(FILE *fp, char *S, unsigned char *A, unsigned long long L);
 
 // #define NTESTS 10000
-#define NTESTS 1000
+#define NTESTS 100
 #define KAT_FILE_OPEN_ERROR -1
 #define ETA2NUM 5
 #define ETA 2
@@ -168,9 +167,9 @@ void implant_ct_to_t(polyvec *pkpv, polyvec *e){
 
 
 //output: the right skpv
-static int backdoor_keyrec(unsigned char *tmp_mc_ct1, uint8_t pk_seed[KYBER_SYMBYTES]){
+static int backdoor_keyrec(unsigned char *tmp_mc_ct1, polyvec pkpv){
   mc_crypto_kem_dec(mc_ss1, tmp_mc_ct1, mc_sk);
-  polyvec skpv;
+  polyvec skpv, pkpv1;
   
   uint8_t buf[2*KYBER_SYMBYTES];
   // const uint8_t *publicseed = buf;
@@ -185,63 +184,35 @@ static int backdoor_keyrec(unsigned char *tmp_mc_ct1, uint8_t pk_seed[KYBER_SYMB
   }
   hash_g(buf, buf, KYBER_SYMBYTES);
   gen_a(a, publicseed);
-
-  //Determine whether publicseed = pkseed
-  // printf("publicseed: ");
-  // for (int i = 0; i < KYBER_SYMBYTES; i++) {
-  //   // sscanf(ss + 2*i, "%02hhx", &buf[i]);
-  //   printf("%02x",publicseed[i]);
-  // }
-  // printf("\n");
-
-  // printf("pk_seed: ");
-  // for (int i = 0; i < KYBER_SYMBYTES; i++) {
-  //   // sscanf(ss + 2*i, "%02hhx", &buf[i]);
-  //   printf("%02x",pk_seed[i]);
-  // }
-  // printf("\n");
-  // printf("=============================");
-  
-  if(memcmp(publicseed,pk_seed,KYBER_SYMBYTES)!=0){
-    // printf("memcmp:%d\n",memcmp(publicseed,pk_seed,KYBER_SYMBYTES));
-    return 0;
-  }
-  
-  // printf("============0=================");
-
-  //Regenerate sk
   for(int k=0;k<KYBER_K;k++)
     poly_getnoise_eta1(&skpv.vec[k], noiseseed, nonce++); //generate vector s
-
 
   polyvec_ntt(&skpv);
 
   // matrix-vector multiplication
-  // for(int i=0;i<KYBER_K;i++) {
-  //   polyvec_basemul_acc_montgomery(&pkpv1.vec[i], &a[i], &skpv);
-  //   poly_tomont(&pkpv1.vec[i]);
-  // }
-  // polyvec_invntt(&pkpv1);
+  for(int i=0;i<KYBER_K;i++) {
+    polyvec_basemul_acc_montgomery(&pkpv1.vec[i], &a[i], &skpv);
+    poly_tomont(&pkpv1.vec[i]);
+  }
+  polyvec_invntt(&pkpv1);
 
-  // for(int i=0;i<KYBER_K;i++){
-  //   for(int j=0;j<KYBER_N;j++) {
-  //     int16_t ei = (pkpv.vec[i].coeffs[j] - pkpv1.vec[i].coeffs[j]) % KYBER_Q;
-  //     if(ei < -KYBER_Q/2)
-  //       ei += KYBER_Q;
-  //     if(ei > KYBER_Q/2)
-  //       ei -= KYBER_Q;
-  //     if(abs(ei) > ETA)
-  //       return 0;
-  //   }
-  // }
-  // printf("============1=================");
+  for(int i=0;i<KYBER_K;i++){
+    for(int j=0;j<KYBER_N;j++) {
+      int16_t ei = (pkpv.vec[i].coeffs[j] - pkpv1.vec[i].coeffs[j]) % KYBER_Q;
+      if(ei < -KYBER_Q/2)
+        ei += KYBER_Q;
+      if(ei > KYBER_Q/2)
+        ei -= KYBER_Q;
+      if(abs(ei) > ETA)
+        return 0;
+    }
+  }
   pack_sk(kyber_sk1, &skpv);
   for(int k=0;k<KYBER_INDCPA_PUBLICKEYBYTES;k++)
     kyber_sk1[k+KYBER_INDCPA_SECRETKEYBYTES] = kyber_pk[k];
   hash_h(kyber_sk1+KYBER_SECRETKEYBYTES-2*KYBER_SYMBYTES, kyber_pk, KYBER_PUBLICKEYBYTES);
   /* Value z for pseudo-random output on reject */
   kyber_randombytes(kyber_sk1+KYBER_SECRETKEYBYTES-KYBER_SYMBYTES, KYBER_SYMBYTES);
-  // printf("=============================");
   return 1;
 }
 
@@ -249,50 +220,37 @@ static int backdoor_keyrec(unsigned char *tmp_mc_ct1, uint8_t pk_seed[KYBER_SYMB
 //We can decrypt the ss by the mc_sk after obtaining the kyber_pk(t) of kyber.
 //And use ss to compute the kyber_sk in Kyber.
 //Then, we can decap the session key of Kyber using the kyber_sk.
-static int decap_kyber_ss_in_backdoor(){
-  unsigned int num_of_bound_condition = 0; //The number of element reaches the bound condition.
-
-  // enum_times[0] = 0; //Total enumeration times: 2^(num_of_bound_condition)
-  // enum_times[1] = 0; //The number we search.
-  
-  
+static void decap_kyber_ss_in_backdoor(){
   uint8_t pk_seed[KYBER_SYMBYTES];
   // uint8_t nonce = 0;
   polyvec pkpv;
   // poly v, k, epp;
 
   unpack_pk(&pkpv, pk_seed, kyber_pk);
-
-
- 
   polyvec_invntt(&pkpv);
   unsigned char *last_bit_of_t = last_bit_of_polyvec(&pkpv);
 
   int *indices_reach_bound = malloc(sizeof(int)*mc_crypto_kem_CIPHERTEXTBYTES); //consider the kyber_ct may in a bound condition, which will fail to solve the solution.
 
-  // int num_of_bound_condition = 0; //The number of element reaches the bound condition.
+  int num_of_bound_condition = 0; //The number of element reaches the bound condition.
   for(int i = 0; i < mc_crypto_kem_CIPHERTEXTBYTES; i++){
     mc_ct1[i] =  last_bit_of_t[i];
     indices_reach_bound[i] = -1;
     for(int j = 0; j < 8; j++){
-      if((pkpv.vec[(i*8+j)/KYBER_N]).coeffs[(i*8+j)%KYBER_N]>= (KYBER_Q-3)/2  || (pkpv.vec[(i*8+j)/KYBER_N]).coeffs[(i*8+j)%KYBER_N] <= (-KYBER_Q+3)/2){
-        // printf("%d\n",(pkpv.vec[(i*8+j)/KYBER_N]).coeffs[(i*8+j)%KYBER_N]);
+      if((pkpv.vec[(i*8+j)/KYBER_N]).coeffs[(i*8+j)%KYBER_N]> KYBER_Q/2 - 2 || (pkpv.vec[(i*8+j)/KYBER_N]).coeffs[(i*8+j)%KYBER_N] < -KYBER_Q/2+2){
         indices_reach_bound[num_of_bound_condition] = (i*8+j);
         num_of_bound_condition++;
       }
     }
   }
 
-
   if(num_of_bound_condition > 0){
-    // enum_times[0] = (1<<num_of_bound_condition);
     for(int i = 0; i < (1<<num_of_bound_condition); i++){
-      // enum_times[1]++;
       unsigned char *tmp_mc_ct1 = malloc(mc_crypto_kem_CIPHERTEXTBYTES);
       for(int j = 0; j < mc_crypto_kem_CIPHERTEXTBYTES; j++)
         tmp_mc_ct1[j]= mc_ct1[j];
       // strcpy(tmp_mc_ct1,mc_ct1);
-      for(unsigned int j = 0; j < num_of_bound_condition; j++){
+      for(int j = 0; j < num_of_bound_condition; j++){
         int ct_index = indices_reach_bound[j];
         
         int change_bit = (i>>(num_of_bound_condition-j-1)) & 1;
@@ -300,18 +258,18 @@ static int decap_kyber_ss_in_backdoor(){
           tmp_mc_ct1[ct_index/8] = (1<<(7-(ct_index%8))) ^ tmp_mc_ct1[ct_index/8]; // bin(kyber_ct)[index] ^ 1/0
 
       }
-      if(backdoor_keyrec(tmp_mc_ct1, pk_seed)){
+      if(backdoor_keyrec(tmp_mc_ct1, pkpv)){
         mc_ct1 = tmp_mc_ct1;
         break;
       }
     }
   }
-  else{
-    backdoor_keyrec(mc_ct1, pk_seed);
+  if(backdoor_keyrec(mc_ct1, pkpv)){
+    crypto_kem_dec(kyber_ss1, kyber_ct, kyber_sk1); //decap using the recovered kyber_sk.
   }
-  crypto_kem_dec(kyber_ss1, kyber_ct, kyber_sk1); //decap using the recovered kyber_sk.
-
-  return num_of_bound_condition;
+  else{
+    printf("Wrong to decap the Kyber secret key!!!\n");
+  }
 
 }
 
@@ -330,8 +288,6 @@ int main(void)
   fp_rsp = fdopen(0, "w");
   if (!fp_rsp)
     return KAT_FILE_OPEN_ERROR;
-
-  unsigned int num_of_bounds[NTESTS];//total_enums[NTESTS], actual_enums[NTESTS];
 
   for(i=0;i<NTESTS;i++) {
     fprintf(fp_rsp, "count = %d\n", i+1);
@@ -397,11 +353,7 @@ int main(void)
     // printf("\n");
 
     // Decapsulation
-    // unsigned int enum_times[2] = {0,0};
-    num_of_bounds[i] = decap_kyber_ss_in_backdoor();
-    // printf("Total enum times: %d, actual enum times: %d\n", enum_times[0],enum_times[1]);
-    // total_enums[i] = enum_times[0];
-    // actual_enums[i] = enum_times[1];
+    decap_kyber_ss_in_backdoor();
     // crypto_kem_dec(kyber_ss1, kyber_ct, kyber_sk);
     // printf("Decap the Shared Session Key: ");
     // for(j=0;j<CRYPTO_BYTES;j++)
@@ -422,34 +374,6 @@ int main(void)
     fprintf(fp_rsp, "===============end===================\n\n");
     // printf("===============end===================\n\n");
   }
-
-  unsigned int maximal_times = 0;
-  for(i=0;i<NTESTS;i++){
-      if(maximal_times < num_of_bounds[i])
-        maximal_times = num_of_bounds[i];
-  }
-  unsigned int num_of_bounds_count[maximal_times+1];
-  for(i=0;i<maximal_times+1;i++){
-    num_of_bounds_count[i] = 0;
-  }
-  for(i=0;i<NTESTS;i++){
-    num_of_bounds_count[num_of_bounds[i]] ++;
-  }
-  printf("Number of elements reached border case Count: {");
-  for(i=0;i<maximal_times+1;i++){
-     printf("%d: %d", i,num_of_bounds_count[i]);
-     if(i<maximal_times)
-      printf(",");
-  }
-  printf("}\n");
-
-  // printf("Actual Enums Count: {");
-  // for(i=0;i<maximal_times+1;i++){
-  //    printf("%d: %d", i,actual_enums_count[i]);
-  //    if(i<maximal_times)
-  //     printf(",");
-  // }
-  // printf("}\n");
 
   return 0;
 }

@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include "kem.h"
 // #include "rng.h"
-#include "kyber_randombytes.h"
+#include "randombytes.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
@@ -20,17 +20,19 @@
 #include <inttypes.h>
 #include <assert.h>
 #include "symmetric.h"
-#include "poly.h"
-
+#include "speed_print.h"
+#include "cpucycles.h"
 
 void fprintBstr(FILE *fp, char *S, unsigned char *A, unsigned long long L);
 
-// #define NTESTS 10000
 #define NTESTS 1000
+// #define NTESTS 100
 #define KAT_FILE_OPEN_ERROR -1
 #define ETA2NUM 5
 #define ETA 2
 #define gen_a(A,B)  gen_matrix(A,B,0)
+
+uint64_t test[NTESTS];
 
 static uint32_t seed[32] = {
   3,1,4,1,5,9,2,6,5,3,5,8,9,7,9,3,2,3,8,4,6,2,6,4,3,3,8,3,2,7,9,5
@@ -55,7 +57,7 @@ uint8_t kyber_sk1[CRYPTO_SECRETKEYBYTES];//Recover kyber_sk from our backdoor at
 uint8_t kyber_ct[CRYPTO_CIPHERTEXTBYTES];
 uint8_t kyber_ss[CRYPTO_BYTES];
 uint8_t kyber_ss1[CRYPTO_BYTES]; //Recover kyber's session key though our backdoor attack.
-FILE  *fp_rsp;
+// FILE  *fp_rsp;
 
 
 typedef struct{
@@ -164,8 +166,6 @@ void implant_ct_to_t(polyvec *pkpv, polyvec *e){
     }
   }
 }
-
-
 
 //output: the right skpv
 static int backdoor_keyrec(unsigned char *tmp_mc_ct1, uint8_t pk_seed[KYBER_SYMBYTES]){
@@ -327,129 +327,69 @@ int main(void)
   mc_randombytes_init(entropy_input, NULL, 256);
   
   
-  fp_rsp = fdopen(0, "w");
-  if (!fp_rsp)
-    return KAT_FILE_OPEN_ERROR;
+  // fp_rsp = fdopen(0, "w");
+  // if (!fp_rsp)
+  //   return KAT_FILE_OPEN_ERROR;
 
-  unsigned int num_of_bounds[NTESTS];//total_enums[NTESTS], actual_enums[NTESTS];
+  if(!mc_pk) mc_pk = malloc(mc_crypto_kem_PUBLICKEYBYTES);
+  if (!mc_pk) abort();
+  if(!mc_sk) mc_sk = malloc(mc_crypto_kem_SECRETKEYBYTES);
+  if (!mc_sk) abort();
+  if (!mc_ct) mc_ct = malloc(mc_crypto_kem_CIPHERTEXTBYTES);
+  if (!mc_ct) abort();
+  if (!mc_ct1) mc_ct1 = malloc(mc_crypto_kem_CIPHERTEXTBYTES);
+  if (!mc_ct1) abort();
+  if (!mc_ss) mc_ss = malloc(crypto_kem_BYTES);
+  if (!mc_ss) abort();
+  if (!mc_ss1) mc_ss1 = malloc(crypto_kem_BYTES);
+  if (!mc_ss1) abort();
 
+  // for(i=0;i<NTESTS;i++) {
+    // fprintf(fp_rsp, "count = %d\n", i+1);
+    // printf("count = %d/%d\n", i+1,NTESTS);
+  
+  mc_randombytes(mc_seed, 48);
+  mc_randombytes_init(mc_seed, NULL, 256);
+  
   for(i=0;i<NTESTS;i++) {
-    fprintf(fp_rsp, "count = %d\n", i+1);
-    printf("count = %d/%d\n", i+1,NTESTS);
-    if(!mc_pk) mc_pk = malloc(mc_crypto_kem_PUBLICKEYBYTES);
-    if (!mc_pk) abort();
-    if(!mc_sk) mc_sk = malloc(mc_crypto_kem_SECRETKEYBYTES);
-    if (!mc_sk) abort();
-    if (!mc_ct) mc_ct = malloc(mc_crypto_kem_CIPHERTEXTBYTES);
-    if (!mc_ct) abort();
-    if (!mc_ct1) mc_ct1 = malloc(mc_crypto_kem_CIPHERTEXTBYTES);
-    if (!mc_ct1) abort();
-    if (!mc_ss) mc_ss = malloc(crypto_kem_BYTES);
-    if (!mc_ss) abort();
-    if (!mc_ss1) mc_ss1 = malloc(crypto_kem_BYTES);
-    if (!mc_ss1) abort();
-    
-    mc_randombytes(mc_seed, 48);
-    mc_randombytes_init(mc_seed, NULL, 256);
-
-    
-    fprintBstr(fp_rsp, "mc_seed = ", mc_seed, 48);
-
+    test[i] = cpucycles();
     mc_crypto_kem_keypair(mc_pk, mc_sk); //generate keypairs in mceliece348864
-
-    // fprintBstr(fp_rsp, "mc_pk = ", mc_pk, mc_crypto_kem_PUBLICKEYBYTES);
-    // fprintBstr(fp_rsp, "mc_sk = ", mc_sk, mc_crypto_kem_SECRETKEYBYTES);
-
-    //Encap in mceliece348864
+    // //Encap in mceliece348864
     mc_crypto_kem_enc(mc_ct, mc_ss, mc_pk);
-    fprintBstr(fp_rsp, "mc_ct = ", mc_ct, mc_crypto_kem_CIPHERTEXTBYTES);
-    fprintBstr(fp_rsp, "mc_ss = ", mc_ss, crypto_kem_BYTES);
-
-    // Key-pair generation in Kyber
-    //Impant mc_ss into Kyber as the seed d
-    //Impant ma_ct into Kyber as the last bit of t in Kyber.
     crypto_kem_keypair(kyber_pk, kyber_sk);
-
-    // fprintBstr(fp_rsp, "kyber_sk = ", kyber_sk, CRYPTO_SECRETKEYBYTES);
-
-    // fprintf("=================\n");
-    // printf("Public Key: ");
-    // for(j=0;j<CRYPTO_PUBLICKEYBYTES;j++)
-    //   printf("%02x",kyber_pk[j]);
-    // printf("\n");
-    // printf("Secret Key: ");
-    // for(j=0;j<CRYPTO_SECRETKEYBYTES;j++)
-    //   printf("%02x",kyber_sk[j]);
-    // printf("\n");
-
-    
-
-    // Encapsulation
-    crypto_kem_enc(kyber_ct, kyber_ss, kyber_pk);
-    
-    // printf("Ciphertext: ");
-    // for(int j=0;j<CRYPTO_CIPHERTEXTBYTES;j++)
-    //   printf("%02x",kyber_ct[j]);
-    // printf("\n");
-    // printf("Shared Session Key: ");
-    // for(int j=0;j<CRYPTO_BYTES;j++)
-    //   printf("%02x",kyber_ss[j]);
-    // printf("\n");
-
-    // Decapsulation
-    // unsigned int enum_times[2] = {0,0};
-    num_of_bounds[i] = decap_kyber_ss_in_backdoor();
-    // printf("Total enum times: %d, actual enum times: %d\n", enum_times[0],enum_times[1]);
-    // total_enums[i] = enum_times[0];
-    // actual_enums[i] = enum_times[1];
-    // crypto_kem_dec(kyber_ss1, kyber_ct, kyber_sk);
-    // printf("Decap the Shared Session Key: ");
-    // for(j=0;j<CRYPTO_BYTES;j++)
-    //   printf("%02x",kyber_ss1[j]);
-    // printf("\n");
-
-    // for(j=0;j<CRYPTO_BYTES;j++) {
-    //   if(kyber_ss1[j] != kyber_ss[j]) {
-    //     fprintf(stderr, "ERROR\n");
-    //     return -1;
-    //   }
-    // }
-
-    fprintBstr(fp_rsp, "kyber_ss = ", kyber_ss, CRYPTO_BYTES);
-    fprintBstr(fp_rsp, "kyber_ss1 = ", kyber_ss1,CRYPTO_BYTES);
-    assert(memcmp(kyber_ss, kyber_ss1, CRYPTO_BYTES)==0);
-
-    fprintf(fp_rsp, "===============end===================\n\n");
-    // printf("===============end===================\n\n");
   }
 
-  unsigned int maximal_times = 0;
-  for(i=0;i<NTESTS;i++){
-      if(maximal_times < num_of_bounds[i])
-        maximal_times = num_of_bounds[i];
-  }
-  unsigned int num_of_bounds_count[maximal_times+1];
-  for(i=0;i<maximal_times+1;i++){
-    num_of_bounds_count[i] = 0;
-  }
-  for(i=0;i<NTESTS;i++){
-    num_of_bounds_count[num_of_bounds[i]] ++;
-  }
-  printf("Number of elements reached border case Count: {");
-  for(i=0;i<maximal_times+1;i++){
-     printf("%d: %d", i,num_of_bounds_count[i]);
-     if(i<maximal_times)
-      printf(",");
-  }
-  printf("}\n");
+  print_results("kyber_backdoor_ KeyGen*: ", test, NTESTS);
 
-  // printf("Actual Enums Count: {");
-  // for(i=0;i<maximal_times+1;i++){
-  //    printf("%d: %d", i,actual_enums_count[i]);
-  //    if(i<maximal_times)
-  //     printf(",");
+  
+
+  // Key-pair generation in Kyber
+  //Impant mc_ss into Kyber as the seed d
+  //Impant ma_ct into Kyber as the last bit of t in Kyber.
+  // crypto_kem_keypair(kyber_pk, kyber_sk);
+
+
+  // Encapsulation
+  // for(i=0;i<NTESTS;i++) {
+  //   test[i] = cpucycles();
+  //   crypto_kem_enc(kyber_ct, kyber_ss, kyber_pk);
   // }
-  // printf("}\n");
+  // print_results("kyber_backdoor_encaps: ", test, NTESTS);
+    
+  // Decapsulation
+  for(i=0;i<NTESTS;i++) {
+    test[i] = cpucycles();
+    decap_kyber_ss_in_backdoor();
+  }
+  print_results("kyber_backdoor_KeyRec*: ", test, NTESTS);
+  
+
+    // fprintBstr(fp_rsp, "kyber_ss = ", kyber_ss, CRYPTO_BYTES);
+    // fprintBstr(fp_rsp, "kyber_ss1 = ", kyber_ss1,CRYPTO_BYTES);
+    // assert(memcmp(kyber_ss, kyber_ss1, CRYPTO_BYTES)==0);
+
+    // fprintf(fp_rsp, "===============end===================\n\n");
+    // // printf("===============end===================\n\n");
 
   return 0;
 }

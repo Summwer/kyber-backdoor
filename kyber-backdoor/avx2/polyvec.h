@@ -1,5 +1,7 @@
+
 #ifndef POLYVEC_H
 #define POLYVEC_H
+
 
 #include <stdint.h>
 #include "params.h"
@@ -8,6 +10,10 @@
 typedef struct{
   poly vec[KYBER_K];
 } polyvec;
+
+
+#define ETA2NUM 5
+#define MONTINV 169 // 2^-16 mod q
 
 #define polyvec_compress KYBER_NAMESPACE(polyvec_compress)
 void polyvec_compress(uint8_t r[KYBER_POLYVECCOMPRESSEDBYTES+2], const polyvec *a);
@@ -33,4 +39,15 @@ void polyvec_reduce(polyvec *r);
 #define polyvec_add KYBER_NAMESPACE(polyvec_add)
 void polyvec_add(polyvec *r, const polyvec *a, const polyvec *b);
 
+#define polyvec_prob_dis_eta2 KYBER_NAMESPACE(polyvec_prob_dis_eta2)
+void polyvec_prob_dis_eta2(polyvec *r);
+
+#define last_bit_of_polyvec KYBER_NAMESPACE(last_bit_of_polyvec)
+unsigned char * last_bit_of_polyvec(polyvec *r);
+
+#define print_polyvec KYBER_NAMESPACE(print_polyvec)
+void print_polyvec(polyvec *r);
+
+#define polyvec_invntt KYBER_NAMESPACE(polyvec_invntt)
+void polyvec_invntt(polyvec *r);
 #endif

@@ -46,7 +46,7 @@ static int test_invalid_sk_a()
   crypto_kem_enc(ct, key_b, pk);
 
   //Replace secret key with random values
-  randombytes(sk, CRYPTO_SECRETKEYBYTES);
+  kyber_randombytes(sk, CRYPTO_SECRETKEYBYTES);
 
   //Alice uses Bobs response to get her shared key
   crypto_kem_dec(key_a, ct, sk);
@@ -70,9 +70,9 @@ static int test_invalid_ciphertext()
   size_t pos;
 
   do {
-    randombytes(&b, sizeof(uint8_t));
+    kyber_randombytes(&b, sizeof(uint8_t));
   } while(!b);
-  randombytes((uint8_t *)&pos, sizeof(size_t));
+  kyber_randombytes((uint8_t *)&pos, sizeof(size_t));
 
   //Alice generates a public key
   crypto_kem_keypair(pk, sk);
