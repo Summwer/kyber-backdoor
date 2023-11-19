@@ -35,7 +35,7 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/lib:./"
 ./test_kyber_backdoor1024 0> backdoor_attack1024.rsp
 ```
 
-Beides, it will also output the number of elements in ct which rearch the border case. We can get the figure 1 in of the article "
+Beides, it will also output the number of elements in ct which rearch the border case. We can get the Figure 2 in of the article "
 Post-Quantum Backdoor for Kyber-KEM".
 
 
