@@ -47,6 +47,7 @@ cd kyber-backdoor/avx2
 export CPATH="$CPATH:$HOME/include"
 export LIBRARY_PATH="$LIBRARY_PATH:$HOME/lib"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/lib"
+make #ignore the error, just used to generate KeccakP-1600-times4-SIMD256.o
 ./build
 ./test_backdoor_speed768
 ./test_backdoor_speed1024
