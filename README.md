@@ -48,8 +48,8 @@ export CPATH="$CPATH:$HOME/include"
 export LIBRARY_PATH="$LIBRARY_PATH:$HOME/lib"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/lib"
 ./build
-./test_backdoor_speed768
-./test_backdoor_speed1024
-./test_speed768
-./test_speed1024
+./test_backdoor_speed768 > test_kyber_backdoor_speed768.rsp
+./test_backdoor_speed1024 > test_kyber_backdoor_speed1024.rsp
+./test_speed768 > test_kyber_speed768.rsp
+./test_speed1024 > test_kyber_speed1024.rsp
 ```
