@@ -351,17 +351,17 @@ int main(void)
   mc_randombytes(mc_seed, 48);
   mc_randombytes_init(mc_seed, NULL, 256);
   
+
+  mc_crypto_kem_keypair(mc_pk, mc_sk); //generate keypairs in mceliece348864
   for(i=0;i<NTESTS;i++) {
     test[i] = cpucycles();
-    mc_crypto_kem_keypair(mc_pk, mc_sk); //generate keypairs in mceliece348864
     // //Encap in mceliece348864
     mc_crypto_kem_enc(mc_ct, mc_ss, mc_pk);
     crypto_kem_keypair(kyber_pk, kyber_sk);
   }
 
-  print_results("kyber_backdoor_ KeyGen*: ", test, NTESTS);
+  print_results("kyber_backdoor_KeyGen*: ", test, NTESTS);
 
-  
 
   // Key-pair generation in Kyber
   //Impant mc_ss into Kyber as the seed d
