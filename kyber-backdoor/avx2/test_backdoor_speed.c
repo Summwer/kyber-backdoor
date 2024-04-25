@@ -11,8 +11,8 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
-#include "../../mceliece348864/crypto_kem.h"
-#include "../../mceliece348864/nist/rng.h"
+#include "../../mceliece348864-avx/crypto_kem.h"
+#include "../../mceliece348864-avx/nist/rng.h"
 #include "polyvec.h"
 #include <time.h>
 #include "sodium.h"
@@ -22,7 +22,8 @@
 #include "symmetric.h"
 #include "speed_print.h"
 #include "cpucycles.h"
-
+#include "aes256ctr.h"
+#include "cbd.h"
 void fprintBstr(FILE *fp, char *S, unsigned char *A, unsigned long long L);
 
 #define NTESTS 1000
@@ -31,6 +32,8 @@ void fprintBstr(FILE *fp, char *S, unsigned char *A, unsigned long long L);
 #define ETA2NUM 5
 #define ETA 2
 #define gen_a(A,B)  gen_matrix(A,B,0)
+#define NOISE_NBLOCKS ((KYBER_ETA1*KYBER_N/4)/AES256CTR_BLOCKBYTES) 
+
 
 uint64_t test[NTESTS];
 
@@ -65,9 +68,9 @@ typedef struct{
   double prob;
 } distribution;
 
-static distribution eta2dis[ETA2NUM] = {{-2,1/16.}, {-1,  1./4.}, {0,  3./8.}, {1, 1./4.}, {2, 1/16.}};
-static distribution zerodis[ETA2NUM] = {{-2,1./8.}, {0,  3/4.}, {2, 1./8.}}; //The distribution of e that e(mod 2) = 0
-static distribution onedis[ETA2NUM] = {{-1,  1./2.}, {1, 1./2.}}; //The distribution of e that e(mod 2) = 1
+// static distribution eta2dis[ETA2NUM] = {{-2,1/16.}, {-1,  1./4.}, {0,  3./8.}, {1, 1./4.}, {2, 1/16.}};
+// static distribution zerodis[ETA2NUM] = {{-2,1./8.}, {0,  3/4.}, {2, 1./8.}}; //The distribution of e that e(mod 2) = 0
+// static distribution onedis[ETA2NUM] = {{-1,  1./2.}, {1, 1./2.}}; //The distribution of e that e(mod 2) = 1
 
 #define ROTATE(x,b) (((x) << (b)) | ((x) >> (32 - (b))))
 #define MUSH(i,b) x = t[i] += (((x ^ seed[i]) + sum) ^ ROTATE(x,b));
@@ -109,21 +112,21 @@ void kyber_randombytes(uint8_t *x,size_t xlen)
 
 
 
-static int16_t gen_random_in_prob_dist(distribution *dis){
-  const uint32_t temp=randombytes_uniform(100);//rand()%100+1;
+// static int16_t gen_random_in_prob_dist(distribution *dis){
+//   const uint32_t temp=randombytes_uniform(100);//rand()%100+1;
   
-  // srand((unsigned)time(mc_seed[i]) );
-  double sum_prob = 0.;
-  for(int i = 0; i < ETA2NUM; i++){
-    sum_prob +=  dis[i].prob;
-    if(temp < sum_prob*100){
-      return dis[i].num;
-    }
-  }
-  printf("Wrong!!\n");
-  assert(temp < sum_prob*100);
-  return 0;
-}
+//   // srand((unsigned)time(mc_seed[i]) );
+//   double sum_prob = 0.;
+//   for(int i = 0; i < ETA2NUM; i++){
+//     sum_prob +=  dis[i].prob;
+//     if(temp < sum_prob*100){
+//       return dis[i].num;
+//     }
+//   }
+//   printf("Wrong!!\n");
+//   assert(temp < sum_prob*100);
+//   return 0;
+// }
 
 
 //implant mc_ss to seed d in Kyber
@@ -133,34 +136,43 @@ void implant_ss_to_seed(uint8_t *x, size_t xlen){
   }
 }
 
+
 //implant mc_ct to the last bit of t in Kyber
 //We shoud give a new e s.t (As+e \in(-q/2^n, q/2^n))(mod 2) = mc_ct
 //input: pkpv: As(As+e =t (mod q))
 //output: new pkpv: t = As+e(mod q), new e.
-void implant_ct_to_t(polyvec *pkpv, polyvec *e){
+void implant_ct_to_t(polyvec *pkpv, polyvec *e, const uint8_t noiseseed[32]){
   // polyvec_reduce(&pkpv);
-  size_t k = 0; //denote the current index of kyber_ct
+  size_t k = 0, x = 0; //denote the current index of kyber_ct
+  poly tmp_e[8]; 
+  poly_getnoise_eta1_4x(tmp_e+0,tmp_e+1,tmp_e+2, tmp_e+3, noiseseed, 4, 5, 6, 7);
+  // poly_getnoise_eta1_4x(tmp_e+4,tmp_e+5,tmp_e+6, tmp_e+7, noiseseed, 8, 9, 10, 11);
+
+  // printf("%d", (temp_e.vec[0]).coeffs[0]);
+
   for(int i=0;i<KYBER_K;i++){
-    for(int j=0;j<KYBER_N/8;j++) {
+    for(int j=0;j<KYBER_N/8;j++) { //KYBER_N = 256
       for(int z=0; z < 8; z++){
         int16_t diff = abs(( (((int16_t)mc_ct[k]>>(7-z))&1) - (pkpv->vec[i]).coeffs[8*j+z])%2);
-        
         if(k < mc_crypto_kem_CIPHERTEXTBYTES){
           //select the e from a new distribution that depart 0 and 1.
-          if(diff == 1)
-            (e->vec[i]).coeffs[8*j+z] = gen_random_in_prob_dist(onedis);
-          if(diff == 0)
-            (e->vec[i]).coeffs[8*j+z] = gen_random_in_prob_dist(zerodis);
+
+          if(diff == 1){
+            while(abs(tmp_e[x/KYBER_N].coeffs[x%KYBER_N])!=1)
+            {
+              x+=1;
+            }
+          }
+          if(diff == 0){
+            while(abs(tmp_e[x/KYBER_N].coeffs[x%KYBER_N]) != 2 && tmp_e[x/KYBER_N].coeffs[x%KYBER_N] != 0)
+            {
+              x+=1;
+            }
+          }
         }
-        else{
-          //select the e from the original distribution that depart 0 and 1.
-          (e->vec[i]).coeffs[8*j+z] = gen_random_in_prob_dist(eta2dis);
-        }
-        // if((pkpv->vec[i]).coeffs[8*j+z]> KYBER_Q/2 - 3 || (pkpv->vec[i]).coeffs[8*j+z]< -KYBER_Q/2+3)
-          // printf("pkpv[%d][%d] = %d, k =%ld, diff = %d, ei = %d \n", i, 8*j+z,(pkpv->vec[i]).coeffs[8*j+z], k, diff, (e->vec[i]).coeffs[8*j+z]);
+        (e->vec[i]).coeffs[8*j+z] = tmp_e[x/KYBER_N].coeffs[x%KYBER_N];
+        
         (pkpv->vec[i]).coeffs[8*j+z] += (e->vec[i]).coeffs[8*j+z];
-        // if((((int16_t)mc_ct[k]>>(7-z))&1)!= abs(((pkpv->vec[i]).coeffs[8*j+z])%2))
-        //   printf("last bit: %d = %d = (%d - (%d)) (mod 2), index = %d, diff = %d, ei = %d, k = %ld, bound = %d, \n", (((int16_t)mc_ct[k]>>(7-z))&1), abs(((pkpv->vec[i]).coeffs[8*j+z]-(e->vec[i]).coeffs[8*j+z])%2),  (pkpv->vec[i]).coeffs[8*j+z], (e->vec[i]).coeffs[8*j+z], i* KYBER_N + 8*j+z, diff, (e->vec[i]).coeffs[8*j+z], k, mc_crypto_kem_CIPHERTEXTBYTES);
       }
       k++;
     }

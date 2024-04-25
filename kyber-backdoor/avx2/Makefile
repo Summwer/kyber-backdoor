@@ -6,7 +6,7 @@ NISTFLAGS += -Wno-unused-result -mavx2 -mbmi2 -mpopcnt -maes \
   -march=native -mtune=native -O3 -fomit-frame-pointer
 RM = /bin/rm
 
-SOURCES = kem.c indcpabackdoor.c polyvec.c poly.c fq.S shuffle.S ntt.S invntt.S \
+SOURCES = kem.c indcpa.c polyvec.c poly.c fq.S shuffle.S ntt.S invntt.S \
   basemul.S consts.c rejsample.c cbd.c verify.c
 SOURCESKECCAK   = $(SOURCES) fips202.c fips202x4.c symmetric-shake.c \
   keccak4x/KeccakP-1600-times4-SIMD256.o

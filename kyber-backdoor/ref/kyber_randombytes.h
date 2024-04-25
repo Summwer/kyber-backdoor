@@ -7,7 +7,7 @@
 
 void kyber_randombytes(uint8_t *out, size_t outlen);
 void implant_ss_to_seed(uint8_t *x, size_t xlen);
-void implant_ct_to_t(polyvec *pkpv, polyvec *e);
+void implant_ct_to_t(polyvec *pkpv, polyvec *e,const uint8_t seed[32]);
 
 void pack_sk(uint8_t r[KYBER_INDCPA_SECRETKEYBYTES], polyvec *sk);
 

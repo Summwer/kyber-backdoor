@@ -504,13 +504,13 @@ void indcpa_keypair(uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
                     uint8_t sk[KYBER_INDCPA_SECRETKEYBYTES])
 {
   unsigned int i;
-  uint8_t buf[2*KYBER_SYMBYTES]; //d in B^32.
+  uint8_t buf[2*KYBER_SYMBYTES]; //d in B^32, 256bit.
   const uint8_t *publicseed = buf;
-  const uint8_t *noiseseed = buf+KYBER_SYMBYTES;
+  const uint8_t *noiseseed = buf+KYBER_SYMBYTES; //128bit.
   // uint8_t nonce = 0;
   polyvec a[KYBER_K], e, pkpv, skpv;
 
-  kyber_randombytes(buf, KYBER_SYMBYTES);
+  //kyber_randombytes(buf, KYBER_SYMBYTES);
 
   //backdoor-attack//
   // printf("original seed d: ");
@@ -549,21 +549,26 @@ void indcpa_keypair(uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
     nonce += 1;
     poly_cbd_eta1(&skpv.vec[i], coins.vec);
   }
-  for(i=0;i<KYBER_K;i++) {
-    aes256ctr_squeezeblocks(coins.coeffs, NOISE_NBLOCKS, &state);
-    state.n = _mm_loadl_epi64((__m128i *)&nonce);
-    nonce += 1;
-    poly_cbd_eta1(&e.vec[i], coins.vec);
-  }
+  // for(i=0;i<KYBER_K;i++) {
+  //   aes256ctr_squeezeblocks(coins.coeffs, NOISE_NBLOCKS, &state);
+  //   state.n = _mm_loadl_epi64((__m128i *)&nonce);
+  //   nonce += 1;
+  //   poly_cbd_eta1(&e.vec[i], coins.vec);
+  // }
 #else
+//We don't use this case for Kyber_K = 2
 #if KYBER_K == 2
   poly_getnoise_eta1_4x(skpv.vec+0, skpv.vec+1, e.vec+0, e.vec+1, noiseseed, 0, 1, 2, 3);
+
+//We needn't generate e.
 #elif KYBER_K == 3
-  poly_getnoise_eta1_4x(skpv.vec+0, skpv.vec+1, skpv.vec+2, e.vec+0, noiseseed, 0, 1, 2, 3);
-  poly_getnoise_eta1_4x(e.vec+1, e.vec+2, pkpv.vec+0, pkpv.vec+1, noiseseed, 4, 5, 6, 7);
+  // poly_getnoise_eta1_4x(skpv.vec+0, skpv.vec+1, skpv.vec+2, e.vec+0, noiseseed, 0, 1, 2, 3);
+  // poly_getnoise_eta1_4x(e.vec+1, e.vec+2, pkpv.vec+0, pkpv.vec+1, noiseseed, 4, 5, 6, 7);
+  poly_getnoise_eta1_4x(skpv.vec+0, skpv.vec+1, skpv.vec+2, pkpv.vec+0, noiseseed, 0, 1, 2, 3);
+  // poly_getnoise_eta1_4x(e.vec+1, e.vec+2, , noiseseed, 4, 5, 6, 7);
 #elif KYBER_K == 4
   poly_getnoise_eta1_4x(skpv.vec+0, skpv.vec+1, skpv.vec+2, skpv.vec+3, noiseseed,  0, 1, 2, 3);
-  poly_getnoise_eta1_4x(e.vec+0, e.vec+1, e.vec+2, e.vec+3, noiseseed, 4, 5, 6, 7);
+  // poly_getnoise_eta1_4x(e.vec+0, e.vec+1, e.vec+2, e.vec+3, noiseseed, 4, 5, 6, 7);
 #endif
 #endif
   // for(i=0;i<KYBER_K;i++)
@@ -591,16 +596,13 @@ void indcpa_keypair(uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
 
   //backdoor-attack// replace the polyvec_add original polyvec_add and generation of e
   polyvec_invntt(&pkpv); //Recover As from NTT form
-  implant_ct_to_t(&pkpv, &e);
-  // printf("last bits of t: ");
-  // last_bit_of_polyvec(&pkpv);
-  // printf("e = ");
-  // print_polyvec(&e);
-  // printf("New e:");
-  // polyvec_prob_dis_eta2(&e);
+
+  polyvec temp_e;
+  poly_getnoise_eta1_4x(temp_e.vec+0, temp_e.vec+1, temp_e.vec+2, temp_e.vec+3, noiseseed,  4, 5, 6, 7);
+  implant_ct_to_t(&pkpv, &e, noiseseed);
   polyvec_ntt(&pkpv);
-  //backdoor-attack//
   
+  //backdoor-attack//
   polyvec_reduce(&pkpv);
 
   pack_sk(sk, &skpv);
@@ -734,3 +736,8 @@ void indcpa_dec(uint8_t m[KYBER_INDCPA_MSGBYTES],
 
   poly_tomsg(m, &mp);
 }
+
+
+
+
+

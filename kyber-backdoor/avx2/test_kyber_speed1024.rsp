@@ -1,12 +1,12 @@
 kyber_keypair: 
-median: 40445 cycles/ticks
-average: 47812 cycles/ticks
+median: 39636 cycles/ticks
+average: 48604 cycles/ticks
 
 kyber_encaps: 
-median: 59118 cycles/ticks
-average: 59654 cycles/ticks
+median: 57890 cycles/ticks
+average: 58533 cycles/ticks
 
 kyber_decaps: 
-median: 50535 cycles/ticks
-average: 50754 cycles/ticks
+median: 49448 cycles/ticks
+average: 50210 cycles/ticks
 

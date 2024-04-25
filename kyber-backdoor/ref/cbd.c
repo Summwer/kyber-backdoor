@@ -62,12 +62,12 @@ static void cbd2(poly *r, const uint8_t buf[2*KYBER_N/4])
   int16_t a,b;
 
   for(i=0;i<KYBER_N/8;i++) {
-    t  = load32_littleendian(buf+4*i);
-    d  = t & 0x55555555;
+    t  = load32_littleendian(buf+4*i); //Description: load 4 bytes buf[4i:4(i+1)] into a 32-bit integer in little-endian order
+    d  = t & 0x55555555; //1010101010101010101010101010101
     d += (t>>1) & 0x55555555;
 
     for(j=0;j<8;j++) {
-      a = (d >> (4*j+0)) & 0x3;
+      a = (d >> (4*j+0)) & 0x3;  //11
       b = (d >> (4*j+2)) & 0x3;
       r->coeffs[8*i+j] = a - b;
     }
@@ -93,14 +93,14 @@ static void cbd3(poly *r, const uint8_t buf[3*KYBER_N/4])
   int16_t a,b;
 
   for(i=0;i<KYBER_N/4;i++) {
-    t  = load24_littleendian(buf+3*i);
-    d  = t & 0x00249249;
-    d += (t>>1) & 0x00249249;
+    t  = load24_littleendian(buf+3*i); //24bit,Description: load 3 bytes buf[3i:3(i+1)] into a 32-bit integer in little-endian order
+    d  = t & 0x00249249; //22bit: 1001001001001001001001
+    d += (t>>1) & 0x00249249; 
     d += (t>>2) & 0x00249249;
 
     for(j=0;j<4;j++) {
-      a = (d >> (6*j+0)) & 0x7;
-      b = (d >> (6*j+3)) & 0x7;
+      a = (d >> (6*j+0)) & 0x7; //111
+      b = (d >> (6*j+3)) & 0x7; //111
       r->coeffs[4*i+j] = a - b;
     }
   }

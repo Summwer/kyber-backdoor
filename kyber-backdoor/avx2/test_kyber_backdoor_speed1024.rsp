@@ -1,8 +1,8 @@
-kyber_backdoor_ KeyGen*: 
-median: 2076989 cycles/ticks
-average: 2112046 cycles/ticks
+kyber_backdoor_KeyGen*: 
+median: 133840 cycles/ticks
+average: 135736 cycles/ticks
 
 kyber_backdoor_KeyRec*: 
-median: 152243600 cycles/ticks
-average: 152796349 cycles/ticks
+median: 191503 cycles/ticks
+average: 194552 cycles/ticks
 

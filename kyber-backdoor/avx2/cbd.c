@@ -16,22 +16,22 @@
 static void cbd2(poly * restrict r, const __m256i buf[2*KYBER_N/128])
 {
   unsigned int i;
-  __m256i f0, f1, f2, f3;
-  const __m256i mask55 = _mm256_set1_epi32(0x55555555);
-  const __m256i mask33 = _mm256_set1_epi32(0x33333333);
-  const __m256i mask03 = _mm256_set1_epi32(0x03030303);
-  const __m256i mask0F = _mm256_set1_epi32(0x0F0F0F0F);
+  __m256i f0, f1, f2, f3; //256 bit 
+  const __m256i mask55 = _mm256_set1_epi32(0x55555555);//1010101010101010101010101010101,32bit
+  const __m256i mask33 = _mm256_set1_epi32(0x33333333); //110011001100110011001100110011
+  const __m256i mask03 = _mm256_set1_epi32(0x03030303); //11000000110000001100000011
+  const __m256i mask0F = _mm256_set1_epi32(0x0F0F0F0F); //1111000011110000111100001111
 
   for(i = 0; i < KYBER_N/64; i++) {
-    f0 = _mm256_load_si256(&buf[i]);
+    f0 = _mm256_load_si256(&buf[i]); //read buf
 
-    f1 = _mm256_srli_epi16(f0, 1);
-    f0 = _mm256_and_si256(mask55, f0);
-    f1 = _mm256_and_si256(mask55, f1);
-    f0 = _mm256_add_epi8(f0, f1);
+    f1 = _mm256_srli_epi16(f0, 1); //f1 = f0>>1
+    f0 = _mm256_and_si256(mask55, f0); //1010101010101010101010101010101&f0
+    f1 = _mm256_and_si256(mask55, f1); //1010101010101010101010101010101&f1
+    f0 = _mm256_add_epi8(f0, f1); //f0 = f0 + f1, get a 
 
-    f1 = _mm256_srli_epi16(f0, 2);
-    f0 = _mm256_and_si256(mask33, f0);
+    f1 = _mm256_srli_epi16(f0, 2); //f1 = f0>>2
+    f0 = _mm256_and_si256(mask33, f0); 
     f1 = _mm256_and_si256(mask33, f1);
     f0 = _mm256_add_epi8(f0, mask33);
     f0 = _mm256_sub_epi8(f0, f1);

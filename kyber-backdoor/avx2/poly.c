@@ -9,6 +9,7 @@
 #include "reduce.h"
 #include "cbd.h"
 #include "symmetric.h"
+#include <stdio.h>
 
 /*************************************************
 * Name:        poly_compress
