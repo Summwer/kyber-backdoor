@@ -294,6 +294,7 @@ void print_polyvec(polyvec *r){
 unsigned char * last_bit_of_polyvec(polyvec *r){
   // uint8_t *last_bits = new uint8_t[KYBER_K*KYBER_N/8];
   unsigned char *last_bits = malloc (sizeof (unsigned char) *KYBER_K*KYBER_N/8);
+  // printf("last_bit:");
   for(int i=0;i<KYBER_K;i++){
     for(int j=0;j<KYBER_N/8;j++) {
       last_bits[i*KYBER_N/8+j] = 0;

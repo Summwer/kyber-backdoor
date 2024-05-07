@@ -523,7 +523,7 @@ void indcpa_keypair(uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
   // printf("change seed d to seed ss in mceliece348864: \n");
   
   implant_ss_to_seed(buf, KYBER_SYMBYTES);
-  // for (i = 0; i < KYBER_SYMBYTES; i++) {
+  // for (int i = 0; i < KYBER_SYMBYTES; i++) {
   //   // sscanf(ss + 2*i, "%02hhx", &buf[i]);
   //   printf("%02x", buf[i]);
   // }
@@ -534,7 +534,7 @@ void indcpa_keypair(uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
   gen_a(a, publicseed);
 
   // for(i=0;i<KYBER_K;i++)
-    // poly_getnoise_eta1(&skpv.vec[i], noiseseed, nonce++); //generate vector s
+  //   poly_getnoise_eta1(&skpv.vec[i], noiseseed, nonce++); //generate vector s
 
 
 #ifdef KYBER_90S
@@ -584,7 +584,9 @@ void indcpa_keypair(uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
   //backdoor-attack//
   polyvec_ntt(&skpv);
   polyvec_reduce(&skpv);
+
   // polyvec_ntt(&e);
+  // printf("skpv.vec[0][0]:%d\n",skpv.vec[0].coeffs[0]);
 
   // matrix-vector multiplication
   for(i=0;i<KYBER_K;i++) {
@@ -597,8 +599,8 @@ void indcpa_keypair(uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
   //backdoor-attack// replace the polyvec_add original polyvec_add and generation of e
   polyvec_invntt(&pkpv); //Recover As from NTT form
 
-  polyvec temp_e;
-  poly_getnoise_eta1_4x(temp_e.vec+0, temp_e.vec+1, temp_e.vec+2, temp_e.vec+3, noiseseed,  4, 5, 6, 7);
+  // polyvec temp_e;
+  // poly_getnoise_eta1_4x(temp_e.vec+0, temp_e.vec+1, temp_e.vec+2, temp_e.vec+3, noiseseed,  4, 5, 6, 7);
   implant_ct_to_t(&pkpv, &e, noiseseed);
   polyvec_ntt(&pkpv);
   
